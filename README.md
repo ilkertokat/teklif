@@ -1,5 +1,7 @@
 # Teklif — Teklif ve Fatura Oluşturucu
 
+**Canlı demo:** https://ilkertokat.github.io/teklif/
+
 [![CI & Pages](https://github.com/ilkertokat/teklif/actions/workflows/ci.yml/badge.svg)](https://github.com/ilkertokat/teklif/actions)
 ![React](https://img.shields.io/badge/React-19-61dafb)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)
@@ -62,6 +64,8 @@ src/
 ---
 
 ## English
+
+**Live demo:** https://ilkertokat.github.io/teklif/
 
 **Teklif** ("quote") is a serverless quote & invoice builder for freelancers, written in React 19 + TypeScript and built with Vite. Totals are computed in integer cents, VAT is grouped per rate, discounts are applied before tax, and the amount is spelled out in Turkish words as on local invoices. Quotes convert to invoices in one click, documents are numbered per year, data stays in `localStorage`, and a print stylesheet produces an exact A4 PDF. All documents and seller details can be exported to a single JSON backup and imported back in another browser; imports are validated (clear errors for broken or foreign files) and merged by document id. The business logic is covered by 30 Vitest unit tests; GitHub Actions tests, builds and deploys to GitHub Pages.
 
