@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { computeTotals, formatMoney, lineTotal, toCents } from "./money";
 import { amountInWords, numberToWords } from "./words";
-import { nextNumber, quoteToInvoice } from "./storage";
+import { exportBackup, mergeDocs, nextNumber, parseBackup, quoteToInvoice } from "./storage";
 import { emptyParty, type Doc, type LineItem } from "./types";
 
 const item = (quantity: number, unitPrice: number, vatRate = 20): LineItem =>
@@ -64,13 +64,13 @@ describe("words", () => {
   });
 });
 
-describe("numbering", () => {
-  const doc = (number: string): Doc => ({
-    id: number, kind: number.startsWith("TKL") ? "teklif" : "fatura", number, status: "taslak",
-    issueDate: "2026-01-01", dueDate: "2026-01-15", currency: "TRY", seller: emptyParty(), buyer: emptyParty(),
-    items: [item(1, 100)], discountPercent: 0, notes: "", createdAt: 0, updatedAt: 0,
-  });
+const doc = (number: string): Doc => ({
+  id: number, kind: number.startsWith("TKL") ? "teklif" : "fatura", number, status: "taslak",
+  issueDate: "2026-01-01", dueDate: "2026-01-15", currency: "TRY", seller: emptyParty(), buyer: emptyParty(),
+  items: [item(1, 100)], discountPercent: 0, notes: "", createdAt: 0, updatedAt: 0,
+});
 
+describe("numbering", () => {
   it("continues the sequence per kind and year", () => {
     const docs = [doc("TKL-2026-001"), doc("TKL-2026-007"), doc("FTR-2026-002"), doc("TKL-2025-050")];
     expect(nextNumber(docs, "teklif", 2026)).toBe("TKL-2026-008");
@@ -86,5 +86,36 @@ describe("numbering", () => {
     expect(inv.discountPercent).toBe(5);
     expect(inv.items[0].id).not.toBe(q.items[0].id);
     expect(inv.notes).toContain("TKL-2026-001");
+  });
+});
+
+describe("JSON backup", () => {
+  const seller = { ...emptyParty(), name: "İlker Tokat", taxNo: "1234567890" };
+  const docs = [doc("TKL-2026-001"), { ...doc("FTR-2026-001"), status: "odendi" as const, currency: "EUR" as const }];
+
+  it("round-trips documents and seller through export / import", () => {
+    const json = exportBackup(docs, seller, new Date("2026-10-05T09:00:00Z"));
+    const backup = parseBackup(json);
+    expect(backup.exportedAt).toBe("2026-10-05T09:00:00.000Z");
+    expect(backup.seller).toEqual(seller);
+    expect(backup.docs).toEqual(docs);
+  });
+
+  it.each([
+    ["not json", "{oops", /geçerli bir JSON/],
+    ["another app", JSON.stringify({ app: "other", version: 1 }), /Teklif yedeği değil/],
+    ["future version", JSON.stringify({ app: "teklif", version: 2 }), /Desteklenmeyen yedek sürümü: 2/],
+    ["broken seller", JSON.stringify({ app: "teklif", version: 1, seller: { name: 1 }, docs: [] }), /firma bilgileri/],
+    ["broken doc", JSON.stringify({ app: "teklif", version: 1, seller: emptyParty(), docs: [{ ...doc("TKL-2026-001"), currency: "GBP" }] }), /1\. belge bozuk/],
+    ["broken item", JSON.stringify({ app: "teklif", version: 1, seller: emptyParty(), docs: [{ ...doc("TKL-2026-001"), items: [{ id: "a" }] }] }), /1\. belge bozuk/],
+  ])("rejects %s", (_, json, msg) => expect(() => parseBackup(json)).toThrow(msg));
+
+  it("merges imported documents, replacing those with the same id", () => {
+    const current = [doc("TKL-2026-001"), doc("TKL-2026-002")];
+    const incoming = [{ ...doc("TKL-2026-002"), notes: "yedekten" }, doc("FTR-2026-005")];
+    const r = mergeDocs(current, incoming);
+    expect(r).toMatchObject({ added: 1, replaced: 1 });
+    expect(r.docs.map((d) => d.id).sort()).toEqual(["FTR-2026-005", "TKL-2026-001", "TKL-2026-002"]);
+    expect(r.docs.find((d) => d.id === "TKL-2026-002")?.notes).toBe("yedekten");
   });
 });

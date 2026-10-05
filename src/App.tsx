@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Editor } from "./components/Editor";
 import { Preview } from "./components/Preview";
 import { docTotals, formatMoney } from "./lib/money";
 import { sampleDocs, sampleSeller } from "./lib/samples";
-import { loadDocs, loadSeller, newDoc, quoteToInvoice, saveDocs, saveSeller, uid } from "./lib/storage";
+import { exportBackup, loadDocs, loadSeller, mergeDocs, newDoc, parseBackup, quoteToInvoice, saveDocs, saveSeller, uid } from "./lib/storage";
 import type { Doc, DocKind } from "./lib/types";
 
 type Filter = "hepsi" | DocKind;
@@ -22,6 +22,7 @@ export default function App() {
   const [activeId, setActiveId] = useState<string | null>(() => docs[0]?.id ?? null);
   const [filter, setFilter] = useState<Filter>("hepsi");
   const [query, setQuery] = useState("");
+  const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => saveDocs(docs), [docs]);
 
@@ -69,6 +70,26 @@ export default function App() {
     setDocs(rest);
     setActiveId(rest[0]?.id ?? null);
   };
+  const exportJson = () => {
+    const blob = new Blob([exportBackup(docs, loadSeller())], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `teklif-yedek-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+  const importJson = async (file: File) => {
+    try {
+      const backup = parseBackup(await file.text());
+      const r = mergeDocs(docs, backup.docs);
+      if (!confirm(`${backup.docs.length} belge içe aktarılacak (${r.added} yeni, ${r.replaced} güncellenecek). Devam edilsin mi?`)) return;
+      if (!loadSeller().name) saveSeller(backup.seller);
+      setDocs(r.docs);
+      setActiveId(backup.docs[0]?.id ?? activeId);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e));
+    }
+  };
   const m = (c: number) => formatMoney(c, "TRY");
 
   return (
@@ -101,7 +122,13 @@ export default function App() {
           ))}
           {!visible.length && <li className="empty">Belge yok</li>}
         </ul>
-        <footer className="side-foot">Veriler yalnızca bu tarayıcıda saklanır.</footer>
+        <div className="backup">
+          <button onClick={exportJson} disabled={!docs.length}>Dışa aktar (JSON)</button>
+          <button onClick={() => fileInput.current?.click()}>İçe aktar</button>
+          <input ref={fileInput} type="file" accept="application/json,.json" hidden
+            onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void importJson(f); }} />
+        </div>
+        <footer className="side-foot">Veriler yalnızca bu tarayıcıda saklanır; yedek için JSON olarak dışa aktarın.</footer>
       </aside>
 
       {active ? (

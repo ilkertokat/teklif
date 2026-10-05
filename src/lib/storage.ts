@@ -56,3 +56,65 @@ export function quoteToInvoice(docs: Doc[], quote: Doc): Doc {
     items: quote.items.map((i) => ({ ...i, id: uid() })), discountPercent: quote.discountPercent,
     notes: `${quote.number} numaralı teklife istinaden düzenlenmiştir.` };
 }
+
+/** Yedek dosyasının biçimi: sürüm alanı ileride göç (migration) yapabilmek için tutulur. */
+export interface Backup {
+  app: "teklif";
+  version: 1;
+  exportedAt: string;
+  seller: Party;
+  docs: Doc[];
+}
+
+/** Tüm belgeleri ve firma bilgilerini okunabilir bir JSON yedeğine çevirir. */
+export function exportBackup(docs: Doc[], seller: Party, now = new Date()): string {
+  const backup: Backup = { app: "teklif", version: 1, exportedAt: now.toISOString(), seller, docs };
+  return JSON.stringify(backup, null, 2);
+}
+
+const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+const KINDS = ["teklif", "fatura"];
+const STATUSES = ["taslak", "gonderildi", "kabul", "odendi"];
+const CURRENCIES = ["TRY", "EUR", "USD"];
+
+function isParty(v: unknown): v is Party {
+  return isObj(v) && ["name", "address", "taxOffice", "taxNo", "email", "phone"].every((k) => typeof v[k] === "string");
+}
+
+function isItem(v: unknown): boolean {
+  return isObj(v) && typeof v.id === "string" && typeof v.description === "string" && typeof v.unit === "string"
+    && [v.quantity, v.unitPrice, v.vatRate].every((n) => typeof n === "number" && Number.isFinite(n));
+}
+
+function isDoc(v: unknown): v is Doc {
+  return isObj(v) && typeof v.id === "string" && typeof v.number === "string"
+    && KINDS.includes(v.kind as string) && STATUSES.includes(v.status as string) && CURRENCIES.includes(v.currency as string)
+    && typeof v.issueDate === "string" && typeof v.dueDate === "string" && typeof v.notes === "string"
+    && typeof v.discountPercent === "number" && typeof v.createdAt === "number" && typeof v.updatedAt === "number"
+    && isParty(v.seller) && isParty(v.buyer) && Array.isArray(v.items) && v.items.every(isItem);
+}
+
+/** JSON yedeğini doğrular; bozuk ya da başka bir uygulamaya ait dosyada anlaşılır bir hata fırlatır. */
+export function parseBackup(json: string): Backup {
+  let data: unknown;
+  try {
+    data = JSON.parse(json);
+  } catch {
+    throw new Error("Dosya geçerli bir JSON değil.");
+  }
+  if (!isObj(data) || data.app !== "teklif") throw new Error("Bu dosya bir Teklif yedeği değil.");
+  if (data.version !== 1) throw new Error(`Desteklenmeyen yedek sürümü: ${String(data.version)}`);
+  if (!isParty(data.seller)) throw new Error("Yedekteki firma bilgileri bozuk.");
+  if (!Array.isArray(data.docs)) throw new Error("Yedekte belge listesi yok.");
+  const bad = data.docs.findIndex((d) => !isDoc(d));
+  if (bad >= 0) throw new Error(`Yedekteki ${bad + 1}. belge bozuk.`);
+  return data as unknown as Backup;
+}
+
+/** Yedekteki belgeleri mevcut listeye ekler; aynı id'li belge varsa yedektekiyle değiştirilir. */
+export function mergeDocs(current: Doc[], incoming: Doc[]): { docs: Doc[]; added: number; replaced: number } {
+  const byId = new Map(incoming.map((d) => [d.id, d]));
+  const replaced = current.filter((d) => byId.has(d.id)).length;
+  const kept = current.filter((d) => !byId.has(d.id));
+  return { docs: [...incoming, ...kept], added: incoming.length - replaced, replaced };
+}

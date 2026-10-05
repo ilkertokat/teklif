@@ -25,6 +25,7 @@ Müşterilerime teklif hazırlarken her seferinde Word şablonunu kopyalayıp KD
 - 📊 **Özet:** Açık teklifler, tahsil edilen ve bekleyen faturalar
 - 🔎 Arama, tür filtresi, durum etiketleri (Taslak / Gönderildi / Kabul / Ödendi), belge kopyalama
 - 💾 Veriler `localStorage`'da; sunucu ya da hesap gerekmez · firma bilgileri bir kez girilir, sonraki belgelere otomatik gelir
+- 📦 **JSON dışa / içe aktarma:** Tüm belgeler ve firma bilgileri tek bir `teklif-yedek-YYYY-MM-DD.json` dosyasına yedeklenir; başka bir tarayıcıda ya da bilgisayarda geri yüklenir. İçe aktarırken dosya doğrulanır (bozuk ya da başka uygulamaya ait dosyada açıklayıcı hata), aynı belge zaten varsa yedektekiyle güncellenir, diğerleri korunur
 
 ### Örnek PDF çıktısı
 
@@ -35,7 +36,7 @@ Müşterilerime teklif hazırlarken her seferinde Word şablonunu kopyalayıp KD
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # Vitest — 22 test
+npm test           # Vitest — 30 test
 npm run build      # dist/ — statik olarak her yerde yayınlanabilir
 ```
 
@@ -49,8 +50,8 @@ src/
 │   ├── types.ts     # Doc, LineItem, Party tipleri
 │   ├── money.ts     # Kuruş tabanlı hesap, KDV gruplama, iskonto, para biçimi
 │   ├── words.ts     # Sayıyı Türkçe yazıya çevirme ("Yalnız … TL")
-│   ├── storage.ts   # localStorage, numaralandırma, tekliften faturaya dönüşüm
-│   └── lib.test.ts  # 22 birim testi
+│   ├── storage.ts   # localStorage, numaralandırma, tekliften faturaya dönüşüm, JSON yedek
+│   └── lib.test.ts  # 30 birim testi
 └── components/
     ├── Editor.tsx   # Form: taraflar, kalemler, iskonto, para birimi
     └── Preview.tsx  # A4 belge (ekranda önizleme, baskıda PDF)
@@ -62,7 +63,7 @@ src/
 
 ## English
 
-**Teklif** ("quote") is a serverless quote & invoice builder for freelancers, written in React 19 + TypeScript and built with Vite. Totals are computed in integer cents, VAT is grouped per rate, discounts are applied before tax, and the amount is spelled out in Turkish words as on local invoices. Quotes convert to invoices in one click, documents are numbered per year, data stays in `localStorage`, and a print stylesheet produces an exact A4 PDF. The business logic is covered by 22 Vitest unit tests; GitHub Actions tests, builds and deploys to GitHub Pages.
+**Teklif** ("quote") is a serverless quote & invoice builder for freelancers, written in React 19 + TypeScript and built with Vite. Totals are computed in integer cents, VAT is grouped per rate, discounts are applied before tax, and the amount is spelled out in Turkish words as on local invoices. Quotes convert to invoices in one click, documents are numbered per year, data stays in `localStorage`, and a print stylesheet produces an exact A4 PDF. All documents and seller details can be exported to a single JSON backup and imported back in another browser; imports are validated (clear errors for broken or foreign files) and merged by document id. The business logic is covered by 30 Vitest unit tests; GitHub Actions tests, builds and deploys to GitHub Pages.
 
 ## Lisans
 
