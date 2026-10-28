@@ -1,7 +1,15 @@
 import type { Currency, Doc, LineItem } from "./types";
 
-/** Kayan nokta hatalarını önlemek için tüm hesaplar kuruş (tam sayı) üzerinden yapılır. */
-export const toCents = (n: number): number => Math.round((Number.isFinite(n) ? n : 0) * 100);
+/**
+ * Kayan nokta hatalarını önlemek için tüm hesaplar kuruş (tam sayı) üzerinden yapılır.
+ * `1.005 * 100` ikilik tabanda 100.49999… çıktığı için önce 15 anlamlı basamağa yuvarlanır;
+ * yarım kuruş sıfırdan uzağa yuvarlanır (iade gibi eksi tutarlar da simetrik: -1,005 → -1,01).
+ */
+export function toCents(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  const scaled = Number((n * 100).toPrecision(15));
+  return Math.sign(scaled) * Math.round(Math.abs(scaled)) || 0;
+}
 export const fromCents = (c: number): number => c / 100;
 
 export interface VatGroup {

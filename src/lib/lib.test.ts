@@ -13,6 +13,18 @@ describe("money", () => {
     expect(lineTotal(item(3, 19.99))).toBe(5997);
   });
 
+  it("rounds half a cent away from zero despite binary representation", () => {
+    // 1.005 * 100 === 100.49999999999999 in IEEE 754
+    expect(toCents(1.005)).toBe(101);
+    expect(toCents(0.285)).toBe(29);
+    expect(toCents(1.255)).toBe(126);
+    expect(toCents(-1.005)).toBe(-101);
+    expect(toCents(-0.004)).toBe(0);
+    expect(toCents(NaN)).toBe(0);
+    expect(lineTotal(item(1, 1.005))).toBe(101);
+    expect(lineTotal(item(3, 1.155))).toBe(347);
+  });
+
   it("computes totals for a single VAT rate", () => {
     const t = computeTotals([item(2, 1000), item(1, 500)]);
     expect(t.subtotal).toBe(250000);
